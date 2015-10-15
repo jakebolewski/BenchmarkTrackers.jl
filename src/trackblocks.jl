@@ -9,6 +9,8 @@ type TrackBlock
     tags::Vector{UTF8String}
 end
 
+hastag(block::TrackBlock, tag::AbstractString) = in(tag, block.tags)
+
 ################
 # @track macro #
 ################
@@ -29,18 +31,19 @@ macro track(tracker, block)
     # Step 3: Build an expression for the track block's `run` function.
     run_def = quote
         results = Vector{BenchmarkTrackers.BenchmarkResults}()
+        tags = UTF8String[$(tags...)]
         $(setup.args...)
     end
 
     name = gensym()
 
     for expr in trackables
-        wrapped_expr = Expr(:quote, expr)
         run_def = quote
             $(run_def.args...)
             Benchmarks.@benchmarkable($name, nothing, $expr, nothing)
             result = Benchmarks.execute($name, $samples, $seconds)
-            push!(results, BenchmarkTrackers.BenchmarkResults($wrapped_expr, result))
+            id = $(string(expr))
+            push!(results, BenchmarkTrackers.BenchmarkResults(id, result, tags))
         end
     end
 
