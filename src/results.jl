@@ -1,23 +1,25 @@
-###############
-# METRIC enum #
-###############
-# The METRIC values available have a one-to-one correspondence with
-# the results obtained from benchmarking a function using Benchmarks.jl.
+###########
+# Metrics #
+###########
 
-@enum METRIC Seconds GCPercent Bytes Allocations
+abstract Metric{field}
 
-export METRIC
+const AllocationsMetric = Metric{:allocations}
+const GCMetric = Metric{:gcpercent}
+const MemoryMetric = Metric{:bytes}
+const TimeMetric = Metric{:nanoseconds}
 
-for metric in instances(METRIC)
+const ALL_METRICS = tuple(AllocationsMetric, GCMetric, MemoryMetric, TimeMetric)
+
+for metric in ALL_METRICS
     @eval export $(symbol(metric))
 end
 
-#########################
-# BenchmarkResults type #
-#########################
+####################
+# BenchmarkResults #
+####################
 
 immutable BenchmarkResults
-    id::UTF8String
     nanoseconds::NTuple{3,Nullable{Float64}}
     gcpercent::NTuple{3,Nullable{Float64}}
     bytes::Int
@@ -28,9 +30,7 @@ immutable BenchmarkResults
 end
 
 # This constructor is going to be fragile until Benchmarks.jl has a stable API
-function BenchmarkResults(id::AbstractString,
-                          results::Benchmarks.Results,
-                          tags::Vector=UTF8String[])
+function BenchmarkResults(results::Benchmarks.Results, tags=UTF8String[])
 
     stats = Benchmarks.SummaryStatistics(results)
     nanoseconds = (stats.elapsed_time_lower,
@@ -44,7 +44,16 @@ function BenchmarkResults(id::AbstractString,
     samples = stats.n
     rsquared = stats.r²
 
-    return BenchmarkResults(UTF8String(id), nanoseconds, gcpercent,
-                            bytes, allocations, samples, rsquared,
-                            Vector{UTF8String}(tags))
+    return BenchmarkResults(nanoseconds, gcpercent, bytes, allocations,
+                            samples, rsquared, Vector{UTF8String}(tags))
 end
+
+function get_metric{field}(results::BenchmarkResults, ::Type{Metric{field}})
+    return results.field
+end
+
+###################
+# BenchmarkRecord #
+###################
+
+typealias BenchmarkRecord Dict{UTF8String,BenchmarkResults}

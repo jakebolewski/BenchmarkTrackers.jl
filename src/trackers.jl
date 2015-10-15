@@ -1,38 +1,40 @@
 
 export BenchmarkTracker
 
-#########################
-# BenchmarkTracker type #
-#########################
+####################
+# BenchmarkTracker #
+####################
 
 type BenchmarkTracker
     name::UTF8String
-    blocks::Vector{TrackBlock}
+    metas::Vector{BenchmarkMetadata}
 end
 
-BenchmarkTracker(name::AbstractString) = BenchmarkTracker(UTF8String(name), Vector{TrackBlock}())
+function BenchmarkTracker(name::AbstractString)
+    return BenchmarkTracker(name, Vector{BenchmarkMetadata}())
+end
 
-track!(tracker::BenchmarkTracker, block::TrackBlock) = push!(tracker.blocks, block)
+track!(tracker::BenchmarkTracker, meta::BenchmarkMetadata) = push!(tracker.metas, meta)
 
 ######################
 # Running benchmarks #
 ######################
 
 function run(tracker::BenchmarkTracker, tags::AbstractString...)
-    results = Vector{BenchmarkResults}()
-
     if isempty(tags)
-        blocks = tracker.blocks
+        metas = tracker.metas
     else
-        tag_predicate = block -> any(tag -> hastag(block, tag), tags)
-        blocks = filter(tag_predicate, tracker.blocks)
+        tag_predicate = meta -> any(tag -> hastag(meta, tag), tags)
+        metas = filter(tag_predicate, tracker.metas)
     end
 
-    for block in blocks
-        append!(results, block.run())
+    record = BenchmarkRecord()
+
+    for meta in metas
+        meta.run!(record)
     end
 
-    return results
+    return record
 end
 
 ########################

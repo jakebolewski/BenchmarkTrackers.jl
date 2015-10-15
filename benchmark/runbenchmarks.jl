@@ -37,7 +37,7 @@ mytracker = BenchmarkTracker("mytracker")
 #       ⋮ # metadata declarations
 #    end
 #
-# Here's an example of defining a `@track` block on `mytracker`:
+# Here's using `@track` to define some metadata on `mytracker`:
 @track mytracker begin
     # The `@setup` expression runs once before benchmarking begins
     @setup begin
@@ -45,21 +45,16 @@ mytracker = BenchmarkTracker("mytracker")
         testa, testb = 3, 4
     end
 
-    # The `@trackable` expressions are what actually get benchmarked.
-    # The limitations on these expressions are the same as the limitations
-    # on expressions passed to Benchmark.@benchmark.
-    @trackable f(testx, testy)
-    @trackable g(testa, testb)
+    # Expressions marked with `@benchmark` correspond to the function calls we
+    # wish to benchmark. The limitations on these expressions are the same as
+    # the limitations on expressions passed to Benchmark.@benchmark.
+    @benchmark f(testx, testy)
+    @benchmark g(testa, testb)
 
     # The `@teardown` expression runs once after benchmarking ends
     @teardown begin
         println("finished benchmarking `f` and `g`")
     end
-
-    # All possible metrics will be collected when running benchmarks, but only
-    # the ones listed after `@metrics` will be used in benchmark comparisons.
-    # For a full list of available metrics, one can run `instances(METRIC)`
-    @metrics Seconds GCPercent
 
     # Benchmark execution for each of the above `@trackable` expressions above
     # will be performed within the budgeted constraints below. For now, only
@@ -74,21 +69,19 @@ mytracker = BenchmarkTracker("mytracker")
     @tags "binary" "example"
 end
 
-# A single BenchmarkTracker can handle multiple `@track` blocks. For example,
-# here's a `@track` block that defines how to benchmark `h` on `mytracker`:
+# A single BenchmarkTracker can handle multiple `@track` definitions. For
+# example, here we provide some metadata for benchmarking `h` on `mytracker`:
 @track mytracker begin
 
     @setup begin
         test = 25
     end
 
-    @trackable h(test)
+    @benchmark h(test)
 
     @teardown begin
         println("finished benchmarking `h`")
     end
-
-    @metrics Seconds
 
     @constraints seconds=4
 
@@ -111,9 +104,11 @@ tagged_results = BenchmarkTrackers.run(mytracker, "binary", "unary")
 #####################################
 # Running Benchmarks as part of CI  #
 #####################################
-# In the future, the `@declare_ci` macro will be the trigger utilized by a
-# BenchmarkServer to retrieve the given tracker from this file during CI. One
-# will be able to declare multiple trackers to the same server simultaneously. 
+# In the future, the `@declare_ci` macro will be the "hook" utilized by a
+# BenchmarkServer to retrieve the given tracker from this file during CI. The
+# given metrics tell the server which comparisons to perform and report on using
+# the given tracker. One will be able to declare multiple trackers to the same
+# server simultaneously.
 
-# @declare_ci mytracker
-# @declare_ci othertracker
+# @declare_ci mytracker TimeMetric GCMetric
+# @declare_ci othertracker AllocationsMetric
