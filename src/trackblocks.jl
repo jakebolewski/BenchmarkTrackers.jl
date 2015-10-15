@@ -16,7 +16,7 @@ hastag(block::TrackBlock, tag::AbstractString) = in(tag, block.tags)
 ################
 
 macro track(tracker, block)
-    # Step 1: Validate that the settings block is indeed a block
+    # Step 1: Validate that the settings block is indeed a block expression
     @assert isa(block, Expr) && block.head == :block "malformed track block"
 
     # Step 2: Extract relevant information from settings
