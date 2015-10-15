@@ -8,7 +8,7 @@ type BenchmarkMetadata
     tags::Vector{UTF8String}
 end
 
-hastag(meta::BenchmarkMetadata, tag::AbstractString) = in(tag, meta.tags)
+gettags(meta::BenchmarkMetadata) = meta.tags
 
 ################
 # @track macro #

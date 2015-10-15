@@ -85,21 +85,30 @@ end
 
     @constraints seconds=4
 
-    @tags "unary" "example"
+    @tags "unary"
 end
 
 ##########################
 # Running the benchmarks #
 ##########################
 
-# Now, we can simply run all the benchmarks by doing:
-results = BenchmarkTrackers.run(mytracker)
-
 # We can run all the benchmarks with a given tag by doing:
-example_results = BenchmarkTrackers.run(mytracker, "example")
+results1 = BenchmarkTrackers.run(mytracker, "example")
 
 # We can also run a whole selection of tags at once:
-tagged_results = BenchmarkTrackers.run(mytracker, "binary", "unary")
+results2 = BenchmarkTrackers.run(mytracker, "binary", "unary")
+
+# Or, we can simply run all the benchmarks available by ommitting tags entirely:
+results3 = BenchmarkTrackers.run(mytracker)
+
+# We can compare benchmark results using `compare`. In the call below, each
+# individual benchmark with both a `results1` version and `results2` version
+# is compared. This means that we'll get comparison results for `f` and `g`,
+# but not `h` (because `h` isn't present in `results1`).
+#
+# `compare_results` is a dictionary where the keys are benchmark identifiers,
+# and the values are of the form ([metric]=>[percent difference]...).
+compare_results = compare(results1, results2, (TimeMetric, GCMetric))
 
 #####################################
 # Running Benchmarks as part of CI  #

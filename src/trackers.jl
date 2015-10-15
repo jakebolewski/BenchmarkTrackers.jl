@@ -36,7 +36,3 @@ function run(tracker::BenchmarkTracker, tags::AbstractString...)
 
     return record
 end
-
-########################
-# Comparing benchmarks #
-########################
