@@ -6,31 +6,31 @@ The intention of BenchmarkTrackers.jl is to **make performance testing of Julia 
 
 Actual benchmark execution is performed using [Benchmarks.jl](https://github.com/jrevels/Benchmarks.jl).
 
-## Writing benchmarks
+## Writing Benchmarks
 
 Benchmarks are written in a package's repository in `benchmark/runbenchmarks.jl`. Check out the [example `runbenchmarks.jl`](https://github.com/JuliaCI/BenchmarkTrackers.jl/blob/master/benchmark/runbenchmarks.jl) that demonstrates how to use BenchmarkTrackers.jl to write benchmarks.
 
-## CI benchmark tracking
+## CI Benchmark Tracking
 
 Coming Soon!
 
-## Manual benchmark tracking
+## Manual Benchmark Tracking
 
-The goal of BenchmarkTrackers.jl is to allow all benchmark execution, result comparison, and status reporting to occur naturally as part of CI. However, you might want to do some manual tracking yourself; this section will tell you how to do so.
+The goal of BenchmarkTrackers.jl is to allow all benchmark execution, result comparison, and status reporting to occur naturally as part of CI. However, you might want to do some tracking yourself, outside of the normal CI flow. In that case, this section demonstrates a workflow for using BenchmarkTrackers.jl "manually."
 
 Note that the machinery described in this section is the same machinery that BenchmarkTrackers.jl itself utilizes during CI.
 
-### Loading the example benchmarks
+##### Step 1: Load the example benchmarks
 
-This section's examples assume that you've read and executed the [example `runbenchmarks.jl`](https://github.com/JuliaCI/BenchmarkTrackers.jl/blob/master/benchmark/runbenchmarks.jl) found in this repository by running:
+First, you should read and execute the [`runbenchmarks.jl`](https://github.com/JuliaCI/BenchmarkTrackers.jl/blob/master/benchmark/runbenchmarks.jl) file found in this repository. To execute this file, you can run:
 
 ```julia
-julia> include(joinpath(Pkg.dir("BenchmarkTrackers"), "benchmark/runbenchmarks.jl"))
+include(joinpath(Pkg.dir("BenchmarkTrackers"), "benchmark/runbenchmarks.jl"))
 ```
 
-Running this file will create a `BenchmarkTracker` called `mytracker` and add some benchmark metadata to it via the `@track` macro.
+Executing this file will create a `BenchmarkTracker` called `mytracker` and add some benchmark metadata to it via the `@track` macro.
 
-### Running the example benchmarks
+##### Step 2: Run the example benchmarks
 
 Running `mytracker`'s benchmarks is as simple as calling the `run` function:
 
@@ -56,9 +56,9 @@ essentials = BenchmarkTrackers.run(mytracker, "essentials")
 arities = BenchmarkTrackers.run(mytracker, "binary", "unary")
 ```
 
-As you can see, `allresults`, `essentials`, and `arities` are all `Dict`s. More specifically, they are all `BenchmarkRecord`s, which is the type alias that BenchmarkTrackers.jl defines for `Dict{UTF8String,BenchmarkResult}`. A `BenchmarkRecord` maps benchmark IDs to `BenchmarkResult`s. By default, a benchmark's ID is the string representation of the benchmark's function call expression (e.g. the benchmark ID corresponding to `@benchmark f(testx, testy)` is `string(:(f(testx, testy)))` -> `"f(testx,testy)"`).
+As you can see, the `run` function returns a `Dict{UTF8String,BenchmarkResult}`. BenchmarkTrackers.jl aliases this type to `BenchmarkRecord`. A `BenchmarkRecord` maps benchmark "IDs" to `BenchmarkResult`s. By default, a benchmark's ID is the string representation of the benchmark's function call expression (e.g. the benchmark ID corresponding to `@benchmark f(testx, testy)` is `string(:(f(testx, testy)))` → `"f(testx,testy)"`).
 
-### Comparing benchmark results
+##### Step 3: Compare benchmark results
 
 We can compare benchmark results using the `compare` function. The `compare` function takes in a `BenchmarkRecord`, another `BenchmarkRecord` to compare against, and a tuple of `Metric`s that stipulate what should be compared:
 
@@ -83,9 +83,9 @@ mycompare(current::BenchmarkResult, former::BenchmarkResult, metric::Metric) -> 
 
 ...where the returned `Float64` is some measure of difference between `current` and `former` with respect to `metric`.
 
-### Evaluating comparison results
+##### Step 4: Evaluate the comparison results
 
-As you'll notice in the previous section, the result of comparing two `BenchmarkRecord`s is a `Dict{UTF8String,Vector{ComparisonResult}}`, which BenchmarkTrackers.jl aliases to `ComparisonRecord`. A `ComparisonRecord` maps benchmark IDs to `ComparisonResult`s. Each `ComparisonResult` store the `Metric` that was compared and the value obtained from the comparison.
+As you'll notice in the previous section, the result of comparing two `BenchmarkRecord`s is a `Dict{UTF8String,Vector{ComparisonResult}}`. BenchmarkTrackers.jl aliases this type to `ComparisonRecord`. A `ComparisonRecord` maps benchmark IDs to `ComparisonResult`s. Each `ComparisonResult` stores the `Metric` that was compared and the value obtained from the comparison.
 
 A common operation on a `ComparisonRecord` is to check which results should be considered "failures". This can easily done with the `failures` function, which takes in a `ComparisonRecord` and returns a `ComparisonRecord` containing all of the input's "failing" results:
 
