@@ -8,7 +8,7 @@ Actual benchmark execution is performed using [Benchmarks.jl](https://github.com
 
 ## Writing Benchmarks
 
-Benchmarks are written in a package's repository in `benchmark/runbenchmarks.jl`. Check out the [example `runbenchmarks.jl`](https://github.com/JuliaCI/BenchmarkTrackers.jl/blob/master/benchmark/runbenchmarks.jl) that demonstrates how to use BenchmarkTrackers.jl to write benchmarks.
+Benchmarks are written in a package's repository in `benchmark/runbenchmarks.jl`. Check out the [`runbenchmarks.jl`](https://github.com/JuliaCI/BenchmarkTrackers.jl/blob/master/benchmark/runbenchmarks.jl) that demonstrates how benchmarks are written using BenchmarkTrackers.jl.
 
 ## CI Benchmark Tracking
 
