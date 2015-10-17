@@ -85,9 +85,9 @@ mycompare(current::BenchmarkResult, former::BenchmarkResult, metric::Metric) -> 
 
 ##### Step 4: Evaluate the comparison results
 
-As you'll notice in the previous section, the result of comparing two `BenchmarkRecord`s is a `Dict{UTF8String,Vector{ComparisonResult}}`. BenchmarkTrackers.jl aliases this type to `ComparisonRecord`. A `ComparisonRecord` maps benchmark IDs to `ComparisonResult`s. Each `ComparisonResult` stores the `Metric` that was compared and the value obtained from the comparison.
+The result of comparing two `BenchmarkRecord`s is a `Dict{UTF8String,Vector{ComparisonResult}}`, which BenchmarkTrackers.jl aliases to `ComparisonRecord`. As you might guess, a `ComparisonRecord` maps benchmark IDs to `ComparisonResult`s. Each `ComparisonResult` stores the `Metric` that was compared and the value obtained from the comparison.
 
-A common operation on a `ComparisonRecord` is to check which results should be considered "failures". This can easily done with the `failures` function, which takes in a `ComparisonRecord` and returns a `ComparisonRecord` containing all of the input's "failing" results:
+A common operation on a `ComparisonRecord` is to check which results should be considered "failures". This can be accomplished with the `failures` function, which takes in a `ComparisonRecord` and returns a `ComparisonRecord` containing all of the input's "failing" results:
 
 ```julia
 fails = BenchmarkTrackers.failures(comparison)
