@@ -41,8 +41,10 @@ mytracker = BenchmarkTracker("mytracker")
 @track mytracker begin
     # The `@setup` expression runs once before benchmarking begins
     @setup begin
+        print("Running setup for `f` and `g` benchmarks...")
         testx, testy = 1, 2
         testa, testb = 3, 4
+        println("done.")
     end
 
     # Expressions marked with `@benchmark` correspond to the function calls we
@@ -53,7 +55,7 @@ mytracker = BenchmarkTracker("mytracker")
 
     # The `@teardown` expression runs once after benchmarking ends
     @teardown begin
-        println("finished benchmarking `f` and `g`")
+        println("Running teardown for `f` and `g` benchmarks...done.")
     end
 
     # Benchmark execution for each of the above `@trackable` expressions above
@@ -66,7 +68,7 @@ mytracker = BenchmarkTracker("mytracker")
     # wish to run (we'll provide an example of this later). Note that tag-based
     # benchmark selection opens up the possibility of allowing GitHub's PR
     # labels to dictate which benchmarks actually get run for a given PR.
-    @tags "binary" "example"
+    @tags "binary" "essentials"
 end
 
 # A single BenchmarkTracker can handle multiple `@track` definitions. For
@@ -79,40 +81,14 @@ end
 
     @benchmark h(test)
 
-    @teardown begin
-        println("finished benchmarking `h`")
-    end
-
     @constraints seconds=4
 
     @tags "unary"
 end
 
-##########################
-# Running the benchmarks #
-##########################
-
-# We can run all the benchmarks with a given tag by doing:
-results1 = BenchmarkTrackers.run(mytracker, "example")
-
-# We can also run a whole selection of tags at once:
-results2 = BenchmarkTrackers.run(mytracker, "binary", "unary")
-
-# Or, we can simply run all the benchmarks available by ommitting tags entirely:
-results3 = BenchmarkTrackers.run(mytracker)
-
-# We can compare benchmark results using `compare`. In the call below, each
-# individual benchmark with both a `results1` version and `results2` version
-# is compared. This means that we'll get comparison results for `f` and `g`,
-# but not `h` (because `h` isn't present in `results1`).
-#
-# `compare_results` is a dictionary where the keys are benchmark identifiers,
-# and the values are of the form ([metric]=>[percent difference]...).
-compare_results = compare(results1, results2, (TimeMetric, GCMetric))
-
-#####################################
-# Running Benchmarks as part of CI  #
-#####################################
+##########################################
+# Using BenchmarkTrackers as part of CI  #
+##########################################
 # In the future, the `@declare_ci` macro will be the "hook" utilized by a
 # BenchmarkServer to retrieve the given tracker from this file during CI. The
 # given metrics tell the server which comparisons to perform and report on using

@@ -42,7 +42,7 @@ macro track(tracker, metadata_block)
             Benchmarks.@benchmarkable($temp_name, nothing, $expr, nothing)
             result = Benchmarks.execute($temp_name, $samples, $seconds)
             id = $(string(expr))
-            record[id] = BenchmarkTrackers.BenchmarkResults(result, tags)
+            record[id] = BenchmarkTrackers.BenchmarkResult(result, tags)
         end
     end
 
