@@ -15,6 +15,8 @@ export BenchmarkTracker, @track
 include("results.jl")
 include("metadata.jl")
 include("trackers.jl")
+include("logging.jl")
+include("server.jl")
 
 ###############################
 # misc. utitily methods/types #
