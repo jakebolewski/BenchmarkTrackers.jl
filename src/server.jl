@@ -26,11 +26,11 @@ function BenchmarkServer(logger::BenchmarkLogger,
                          workspace=pwd())
 
     if nprocs() < 2
-        error("BenchmarkServer needs at least one child node to run benchmarks on")
+        error("BenchmarkServer needs at least 2 processes to run and log benchmarks")
     end
 
-    parent_id = myid()
-    proclist = setdiff(procs(), parent_id)
+    server_id = myid()
+    proclist = setdiff(procs(), server_id)
 
     listener = GitHub.EventListener(auth, secret, owner, repo;
                                     events=COMMENT_EVENTS) do event, auth
@@ -82,7 +82,7 @@ function BenchmarkServer(logger::BenchmarkLogger,
 
         GitHub.respond(event, current_sha, pending, auth)
 
-        @spawnat child_id benchmark_process(parent_id, workspace,
+        @spawnat child_id benchmark_process(server_id, workspace,
                                             current_sha, former_sha,
                                             logger, tags, status_url,
                                             auth, owner, repo, event)
@@ -99,7 +99,7 @@ end
 # name; we should definitely come up with a more robust approach later.
 const TRACKER_CI_SYMBOL = :_trackers_collection_0x82a300e3cc1919ab
 
-function benchmark_process(parent_id, workspace,
+function benchmark_process(server_id, workspace,
                            current_sha, former_sha,
                            logger, tags, status_url,
                            auth, owner, repo, event)
@@ -137,7 +137,7 @@ function benchmark_process(parent_id, workspace,
         include(joinpath(pkgpath, "src", repo))
         include(joinpath(pkgpath, "benchmark", "runbenchmarks.jl"))
 
-        tracker = TRACKER_CI_SYMBOL
+        tracker = eval(current_module(), TRACKER_CI_SYMBOL)
 
         # Step 3: Run benchmarks
 
@@ -148,14 +148,14 @@ function benchmark_process(parent_id, workspace,
 
         GitHub.respond(event, current_sha, pending, auth)
 
-        current_record = BenchmarkTrackers.run(BenchmarkNamespace.tracker, tags...)
+        current_record = BenchmarkTrackers.run(tracker, tags...)
 
-        @spawnat parent_id writelog(logger, current_sha, current_record)
+        @spawnat server_id writelog(logger, current_sha, current_record)
 
         # Step 4: Perform comparisons and return statuses
 
-        if @fetchfrom parent_id haslog(logger, former_sha)
-            former_record = @fetchfrom parent_id readlog(logger, former_sha)
+        if @fetchfrom server_id haslog(logger, former_sha)
+            former_record = @fetchfrom server_id readlog(logger, former_sha)
             for tag in tags
                 comparison = BenchmarkTrackers.compare(current_record, former_record, tags=[tag])
                 failed, succeeded = BenchmarkTrackers.judge(comparison)
@@ -171,7 +171,7 @@ function benchmark_process(parent_id, workspace,
                 end
             end
         else
-            success = GitHub.Status(GitHub.Success;
+            success = GitHub.Status(GitHub.SUCCESS;
                                     description="Benchmarking finished; no comparison log was found for commit $former_sha",
                                     context="BenchmarkServer",
                                     target_url=status_url)
@@ -192,7 +192,7 @@ function benchmark_process(parent_id, workspace,
     end
 end
 
-function run(server::BenchmarkServer, args...; kwargs...)
+function Base.run(server::BenchmarkServer, args...; kwargs...)
     return GitHub.run(server.listener, args...; kwargs...)
 end
 

@@ -17,7 +17,7 @@ track!(tracker::BenchmarkTracker, meta::BenchmarkMetadata) = push!(tracker.metas
 # Running benchmarks #
 ######################
 
-function run(tracker::BenchmarkTracker, tags::AbstractString...)
+function Base.run(tracker::BenchmarkTracker, tags::AbstractString...)
     if isempty(tags)
         metas = tracker.metas
     else
