@@ -1,5 +1,3 @@
-import BenchmarkTrackers, GitHub
-
 home = homedir()
 workspace = joinpath(home, "benchmark_workspace")
 
@@ -9,12 +7,15 @@ end
 
 cd(workspace)
 
+addprocs()
+
+using BenchmarkTrackers, GitHub
+
 logger = BenchmarkTrackers.JLDLogger(workspace)
-node_configs = [tuple(["nanosoldier5"])]
 auth = GitHub.OAuth2(ENV["GITHUB_AUTH_TOKEN"])
 secret = ENV["MY_SECRET"]
 owner = "jrevels"
 repo = "webhooks-test"
-mytrigger = "%NanosoldierRunBenchmarks"
+trigger = "%NanosoldierRunBenchmarks"
 
-server = BenchmarkTrackers.BenchmarkServer(node_configs, logger, auth, secret, owner, repo; trigger=mytrigger)
+server = BenchmarkTrackers.BenchmarkServer(logger, auth, secret, owner, repo; trigger=trigger, workspace=workspace)

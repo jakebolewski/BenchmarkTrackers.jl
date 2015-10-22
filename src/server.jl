@@ -1,5 +1,4 @@
 immutable BenchmarkServer
-    node_configs
     listener::GitHub.EventListener
 end
 
@@ -19,15 +18,19 @@ const COMMENT_EVENTS = [GitHub.CommitCommentEvent, GitHub.PullRequestReviewComme
 # HEAD's parent. If the event is a PullRequestReviewCommentEvent, the default
 # comparison commit is the HEAD of the base branch.
 
-function BenchmarkServer(node_configs, logger::BenchmarkLogger,
+function BenchmarkServer(logger::BenchmarkLogger,
                          auth::GitHub.OAuth2, secret::AbstractString,
                          owner::AbstractString, repo::AbstractString;
                          trigger::AbstractString="%RunBenchmarks",
-                         status_url::AbstractString="")
+                         status_url::AbstractString="",
+                         workspace=pwd())
 
-    if isempty(node_configs)
+    if nprocs() < 2
         error("BenchmarkServer needs at least one child node to run benchmarks on")
     end
+
+    parent_id = myid()
+    proclist = setdiff(procs(), parent_id)
 
     listener = GitHub.EventListener(auth, secret, owner, repo;
                                     events=COMMENT_EVENTS) do event, auth
@@ -69,17 +72,18 @@ function BenchmarkServer(node_configs, logger::BenchmarkLogger,
         end
 
         # Step 5: run everything else in a child process
+        child_id = first(proclist)
+        proclist = circshift(proclist, 1)
 
-        process_expr = benchmark_process(myid(), current_sha, former_sha,
-                                         logger, tags, status_url,
-                                         auth, owner, repo, event)
-
-        @spawn eval(process_expr)
+        @spawnat child_id benchmark_process(parent_id, workspace,
+                                            current_sha, former_sha,
+                                            logger, tags, status_url,
+                                            auth, owner, repo, event)
 
         return HttpCommon.Response(200, "benchmark process is running")
     end
 
-    return BenchmarkServer(node_configs, listener)
+    return BenchmarkServer(listener)
 end
 
 # This is the magic symbol that is utilized by @declare_ci to propogate trackers
@@ -88,112 +92,96 @@ end
 # name; we should definitely come up with a more robust approach later.
 const TRACKER_CI_SYMBOL = :_trackers_collection_0x82a300e3cc1919ab
 
-function benchmark_process(parent_process, current_sha, former_sha,
+function benchmark_process(parent_id, workspace,
+                           current_sha, former_sha,
                            logger, tags, status_url,
                            auth, owner, repo, event)
-    # The below expression is intended to be eval'd by a child process
-    return quote
-        # Step 1: Set up a new Pkg environment in the pwd
+    try
+        # Step 1: Set up package environment
+        pid_workspace = joinpath(workspace, "workspace_$(myid())")
 
-        ENV["JULIA_PKGDIR"] = pwd()
-
-        Pkg.init()
-        Pkg.clone("https://github.com/JuliaCI/BenchmarkTrackers.jl")
-        Pkg.clone("https://github.com/$owner/$repo")
-        Pkg.resolve()
-
-        # Step 2: Set process variables
-
-        import BenchmarkTrackers, GitHub
-
-        parent_process = $parent_process
-        current_sha, former_sha = $current_sha, $former_sha
-        logger, tags, status_url = $logger, $tags, $status_url
-        auth, owner, repo, event = $auth, $owner, $repo, $event
-
-        try
-            # Step 3: Checkout current_sha of package
-
-            pkgpath = Pkg.dir(first(splitext("$repo"))) # `repo` is "MyPkg.jl" or "MyPkg"
-            current_pwd = pwd()
-            cd(pkgpath)
-            run(`git checkout $sha`) # can we do this without shelling out?
-            cd(current_pwd)
-
-            # Step 4: Retrieve BenchmarkTracker
-
-            pending = GitHub.Status(GitHub.PENDING;
-                                    description="Benchmark environment initialized. Retrieving tracker from runbenchmark.jl...",
-                                    context="BenchmarkServer",
-                                    target_url=status_url)
-
-            GitHub.respond(event, sha, pending, auth)
-
-            module BenchmarkNamespace # keeps benchmarking namespace from leaking into Main
-                include(joinpath(Main.pkgpath, "benchmark", "runbenchmarks.jl"))
-                tracker = $TRACKER_CI_SYMBOL
-            end
-
-            # Step 5: Run benchmarks
-
-            pending = GitHub.Status(GitHub.PENDING;
-                                    description="Running benchmarks...",
-                                    context="BenchmarkServer",
-                                    target_url=status_url)
-
-            GitHub.respond(event, current_sha, pending, auth)
-
-            current_record = BenchmarkTrackers.run(BenchmarkNamespace.tracker, tags...)
-
-            @spawnat parent_process writelog(logger, current_sha, current_record)
-
-            # Step 6: Perform comparisons and return statuses
-
-            if @fetchfrom parent_process haslog(logger, former_sha)
-                former_record = @fetchfrom parent_process readlog(logger, former_sha)
-                for tag in tags
-                    comparison = BenchmarkTrackers.compare(current_record, former_record, tags=[tag])
-                    failed, succeeded = BenchmarkTrackers.judge(comparison)
-
-                    for (metric, record) in BenchmarkTrackers.indexby(failed, BenchmarkTrackers.Metric)
-                        BenchmarkTrackers.post_metric_status(event, current_sha, status_url, auth,
-                                                             tag, metric, record, GitHub.FAILURE)
-                    end
-
-                    for (metric, results) in BenchmarkTrackers.indexby(succeeded, BenchmarkTrackers.Metric)
-                        BenchmarkTrackers.post_metric_status(event, current_sha, status_url, auth,
-                                                             tag, metric, record, GitHub.SUCCESS)
-                    end
-                end
-            else
-                success = GitHub.Status(GitHub.Success;
-                                        description="Benchmarking finish; no comparison log was found for commit $former_sha",
-                                        context="BenchmarkServer",
-                                        target_url=status_url)
-
-                GitHub.respond(event, current_sha, success, auth)
-            end
-
-            # Step 7: Clean up Pkg environment
-
-            pop!(ENV, "JULIA_PKGDIR")
-            rm(Pkg.dir(), recursive=true)
-
-        catch err
-            status = GitHub.Status(GitHub.ERROR;
-                                   description="Encountered error during benchmarking: $err",
-                                   context="BenchmarkServer",
-                                   target_url=status_url)
-            GitHub.respond(event, current_sha, status, auth)
+        if !(isdir(pid_workspace))
+            mkdir(pid_workspace)
         end
+
+        pkgname = first(splitext(repo))
+        pkgpath = joinpath(pid_workspace, owner, pkgname)
+
+        if !(isdir(pkgpath))
+            run(`git clone https://github.com/$owner/$repo $pkgpath`)
+        end
+
+        cd(pkgpath)
+
+        # It would be great if we could do this without shelling out
+        run(`git fetch`)
+        run(`git checkout $sha`)
+
+        pending = GitHub.Status(GitHub.PENDING;
+                                description="Benchmark environment initialized. Retrieving tracker from runbenchmark.jl...",
+                                context="BenchmarkServer",
+                                target_url=status_url)
+
+        GitHub.respond(event, sha, pending, auth)
+
+        # Step 2: Retrieve BenchmarkTracker
+
+        include(joinpath(pkgpath, "src", repo))
+        include(joinpath(pkgpath, "benchmark", "runbenchmarks.jl"))
+
+        tracker = TRACKER_CI_SYMBOL
+
+        # Step 3: Run benchmarks
+
+        pending = GitHub.Status(GitHub.PENDING;
+                                description="Running benchmarks...",
+                                context="BenchmarkServer",
+                                target_url=status_url)
+
+        GitHub.respond(event, current_sha, pending, auth)
+
+        current_record = BenchmarkTrackers.run(BenchmarkNamespace.tracker, tags...)
+
+        @spawnat parent_id writelog(logger, current_sha, current_record)
+
+        # Step 4: Perform comparisons and return statuses
+
+        if @fetchfrom parent_process haslog(logger, former_sha)
+            former_record = @fetchfrom parent_process readlog(logger, former_sha)
+            for tag in tags
+                comparison = BenchmarkTrackers.compare(current_record, former_record, tags=[tag])
+                failed, succeeded = BenchmarkTrackers.judge(comparison)
+
+                for (metric, record) in BenchmarkTrackers.indexby(failed, BenchmarkTrackers.Metric)
+                    BenchmarkTrackers.post_metric_status(event, current_sha, status_url, auth,
+                                                         tag, metric, record, GitHub.FAILURE)
+                end
+
+                for (metric, results) in BenchmarkTrackers.indexby(succeeded, BenchmarkTrackers.Metric)
+                    BenchmarkTrackers.post_metric_status(event, current_sha, status_url, auth,
+                                                         tag, metric, record, GitHub.SUCCESS)
+                end
+            end
+        else
+            success = GitHub.Status(GitHub.Success;
+                                    description="Benchmarking finished; no comparison log was found for commit $former_sha",
+                                    context="BenchmarkServer",
+                                    target_url=status_url)
+
+            GitHub.respond(event, current_sha, success, auth)
+        end
+    catch err
+        println("Encountered error:", err)
+        status = GitHub.Status(GitHub.ERROR;
+                               description="Encountered error during benchmarking: $err",
+                               context="BenchmarkServer",
+                               target_url=status_url)
+        GitHub.respond(event, current_sha, status, auth)
     end
 end
 
 function run(server::BenchmarkServer, args...; kwargs...)
-    for config in server.node_configs
-        addprocs(config...)
-    end
-    GitHub.run(server.listener, args...; kwargs...)
+    return GitHub.run(server.listener, args...; kwargs...)
 end
 
 macro declare_ci(tracker)
