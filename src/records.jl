@@ -86,9 +86,9 @@ function compare(current::BenchmarkRecord, former::BenchmarkRecord,
 end
 
 # This failure predicate determines that a ComparisonResult is a failure if
-# its difference is a NaN or is positive within a 5-point tolerance.
+# its difference is a NaN or is positive within a given tolerance.
 function isfailure(result::ComparisonResult,
-                   tolerance::Number=5.0)
+                   tolerance::Number=10.0)
     diff = result.difference
     return isnan(diff) || (diff - tolerance) > 0.0
 end

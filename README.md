@@ -85,7 +85,7 @@ mycompare(current::BenchmarkResult, former::BenchmarkResult, metric::Metric) -> 
 
 ##### Step 4: Evaluate the comparison results
 
-The result of comparing two `BenchmarkRecord`s is a `Dict{UTF8String,Vector{ComparisonResult}}`, which BenchmarkTrackers.jl aliases to `ComparisonRecord`. As you might guess, a `ComparisonRecord` maps benchmark IDs to `ComparisonResult`s. Each `ComparisonResult` stores the `Metric` that was compared and the value obtained from the comparison.
+The result of comparing two `BenchmarkRecord`s is a `Vector{ComparisonResult}`, which BenchmarkTrackers.jl aliases to `ComparisonRecord`. Each `ComparisonResult` stores a benchmark ID, the `Metric` that was compared, and the value obtained from the comparison.
 
 A common operation on a `ComparisonRecord` is to check which results should be considered "failures". This can be accomplished with the `failures` function, which takes in a `ComparisonRecord` and returns a `ComparisonRecord` containing all of the input's "failing" results:
 
@@ -93,7 +93,7 @@ A common operation on a `ComparisonRecord` is to check which results should be c
 fails = BenchmarkTrackers.failures(comparison)
 ```
 
-By default, a "failing" `ComparisonResult` is one in which the `ComparisonResult`'s value is a `NaN`, or is positive (within a 5 point tolerance). This default definition of failure is consistent with the default comparison method, which is percent difference. However, you might want to use a different definition for failure. In this situation, you can provide your own custom failure predicate:
+By default, a "failing" `ComparisonResult` is one in which the `ComparisonResult`'s value is a `NaN`, or is positive (within a tolerance). This default definition of failure is consistent with the default comparison method, which is percent difference. However, you might want to use a different definition for failure. In this situation, you can provide your own custom failure predicate:
 
 ```julia
 # `mypredicate` is a user-defined function
@@ -103,7 +103,7 @@ fails = BenchmarkTrackers.failures(mypredicate, comparison)
 Here, the `mypredicate` function should have the following signature:
 
 ```julia
-predicate(id::UTF8String, result::ComparisonResult) -> Bool
+predicate(result::ComparisonResult) -> Bool
 ```
 
 ...where the returned `Bool` indicates whether or not the `result` should be considered a failure.

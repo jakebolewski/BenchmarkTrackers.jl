@@ -28,7 +28,7 @@ end
 
 # Next, the user defines a `BenchmarkTracker` to hold all the metadata necessary
 # for running benchmarks and performing result comparisons.
-mytracker = BenchmarkTracker("mytracker")
+mytracker = BenchmarkTracker()
 
 # After defining a tracker, we can feed it benchmark metadata via the `@track`
 # macro. The syntax of the `@track` macro is:
@@ -49,9 +49,10 @@ mytracker = BenchmarkTracker("mytracker")
 
     # Expressions marked with `@benchmark` correspond to the function calls we
     # wish to benchmark. The limitations on these expressions are the same as
-    # the limitations on expressions passed to Benchmark.@benchmark.
-    @benchmark f(testx, testy)
-    @benchmark g(testa, testb)
+    # the limitations on expressions passed to Benchmark.@benchmark. The second
+    # argument to `@benchmark` is a unique ID for the expression.
+    @benchmark f(testx, testy) "f"
+    @benchmark g(testa, testb) "g"
 
     # The `@teardown` expression runs once after benchmarking ends
     @teardown begin
@@ -79,21 +80,30 @@ end
         test = 25
     end
 
-    @benchmark h(test)
+    @benchmark h(test) "h1"
 
     @constraints seconds=4
 
     @tags "unary"
 end
 
+@track mytracker begin
+
+    @setup begin
+        test = 400
+    end
+
+    @benchmark h(test) "h2"
+
+    @constraints seconds=3
+
+    @tags "potato"
+end
+
 ##########################################
 # Using BenchmarkTrackers as part of CI  #
 ##########################################
-# In the future, the `@declare_ci` macro will be the "hook" utilized by a
-# BenchmarkServer to retrieve the given tracker from this file during CI. The
-# given metrics tell the server which comparisons to perform and report on using
-# the given tracker. One will be able to declare multiple trackers to the same
-# server simultaneously.
+# The `@declare_ci` macro tells the BenchmarkServer to run `mytracker`'s
+# benchmarks during CI
 
-# @declare_ci mytracker TimeMetric GCMetric
-# @declare_ci othertracker AllocationsMetric
+@declare_ci mytracker
