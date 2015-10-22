@@ -75,6 +75,13 @@ function BenchmarkServer(logger::BenchmarkLogger,
         child_id = first(proclist)
         proclist = circshift(proclist, 1)
 
+        pending = GitHub.Status(GitHub.PENDING;
+                                description="Initializing benchmark environment...",
+                                context="BenchmarkServer",
+                                target_url=status_url)
+
+        GitHub.respond(event, current_sha, pending, auth)
+
         @spawnat child_id benchmark_process(parent_id, workspace,
                                             current_sha, former_sha,
                                             logger, tags, status_url,
@@ -96,33 +103,34 @@ function benchmark_process(parent_id, workspace,
                            current_sha, former_sha,
                            logger, tags, status_url,
                            auth, owner, repo, event)
+
+    pid_workspace = joinpath(workspace, "workspace_$(myid())")
+
+    if isdir(pid_workspace)
+        rm(pid_workspace, recursive=true)
+        mkdir(pid_workspace)
+    end
+
     try
         # Step 1: Set up package environment
-        pid_workspace = joinpath(workspace, "workspace_$(myid())")
-
-        if !(isdir(pid_workspace))
-            mkdir(pid_workspace)
-        end
 
         pkgname = first(splitext(repo))
         pkgpath = joinpath(pid_workspace, owner, pkgname)
 
-        if !(isdir(pkgpath))
-            run(`git clone https://github.com/$owner/$repo $pkgpath`)
-        end
+        Base.run(`git clone https://github.com/$owner/$repo $pkgpath`)
 
         cd(pkgpath)
 
         # It would be great if we could do this without shelling out
-        run(`git fetch`)
-        run(`git checkout $sha`)
+        Base.run(`git fetch`)
+        Base.run(`git checkout $current_sha`)
 
         pending = GitHub.Status(GitHub.PENDING;
                                 description="Benchmark environment initialized. Retrieving tracker from runbenchmark.jl...",
                                 context="BenchmarkServer",
                                 target_url=status_url)
 
-        GitHub.respond(event, sha, pending, auth)
+        GitHub.respond(event, current_sha, pending, auth)
 
         # Step 2: Retrieve BenchmarkTracker
 
@@ -146,8 +154,8 @@ function benchmark_process(parent_id, workspace,
 
         # Step 4: Perform comparisons and return statuses
 
-        if @fetchfrom parent_process haslog(logger, former_sha)
-            former_record = @fetchfrom parent_process readlog(logger, former_sha)
+        if @fetchfrom parent_id haslog(logger, former_sha)
+            former_record = @fetchfrom parent_id readlog(logger, former_sha)
             for tag in tags
                 comparison = BenchmarkTrackers.compare(current_record, former_record, tags=[tag])
                 failed, succeeded = BenchmarkTrackers.judge(comparison)
@@ -171,12 +179,16 @@ function benchmark_process(parent_id, workspace,
             GitHub.respond(event, current_sha, success, auth)
         end
     catch err
-        println("Encountered error:", err)
+        println("Encountered error: ", err)
         status = GitHub.Status(GitHub.ERROR;
                                description="Encountered error during benchmarking: $err",
                                context="BenchmarkServer",
                                target_url=status_url)
         GitHub.respond(event, current_sha, status, auth)
+    finally
+        if isdir(pid_workspace)
+            rm(pid_workspace, recursive=true)
+        end
     end
 end
 
