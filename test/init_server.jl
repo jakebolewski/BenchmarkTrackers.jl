@@ -1,7 +1,11 @@
 import BenchmarkTrackers, GitHub
 
 home = homedir()
-workspace = mkdir(joinpath(home, "benchmark_workspace"))
+workspace = joinpath(home, "benchmark_workspace")
+
+if !(isdir(workspace))
+    mkdir(workspace)
+end
 
 cd(workspace)
 
