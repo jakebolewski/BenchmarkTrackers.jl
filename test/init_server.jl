@@ -17,4 +17,4 @@ owner = "jrevels"
 repo = "webhooks-test"
 mytrigger = "%NanosoldierRunBenchmarks"
 
-server = BenchmarkServer(node_configs, logger, auth, secret, owner, repo; trigger=mytrigger)
+server = BenchmarkTrackers.BenchmarkServer(node_configs, logger, auth, secret, owner, repo; trigger=mytrigger)
