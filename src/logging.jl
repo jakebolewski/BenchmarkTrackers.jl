@@ -28,7 +28,7 @@ immutable JLDLogger <: BenchmarkLogger
     maxlogs::Int
     history::Vector{UTF8String}
     function JLDLogger(path=pwd(); prefix="benchmarks", maxlogs=typemax(Int))
-        return JLDLogger(host, path, prefix, maxlogs, Vector{UTF8String}())
+        return JLDLogger(path, prefix, maxlogs, Vector{UTF8String}())
     end
 end
 
