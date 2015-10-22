@@ -6,7 +6,7 @@ module BenchmarkTrackers
 
 import GitHub, Benchmarks, JLD, HttpCommon, URIParser, Requests
 
-export BenchmarkTracker, BenchmarkServer, @track, @declare_ci, 
+export BenchmarkTracker, BenchmarkServer, @track, @declare_ci
 
 ###########
 # include #
