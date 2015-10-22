@@ -4,8 +4,8 @@
 
 type BenchmarkMetadata
     run!::Function
-    benchmarks::Vector{Expr}
-    tags::Vector{UTF8String}
+    benchmarks::Vector{Pair{BenchmarkID,Expr}}
+    tags::Vector{Tag}
 end
 
 gettags(meta::BenchmarkMetadata) = meta.tags
@@ -29,20 +29,19 @@ macro track(tracker, metadata_block)
 
     # Step 3: Build an expression for the metadata's `run` function
     run_def = quote
-        tags = UTF8String[$(tags...)]
+        tags = BenchmarkTrackers.Tag[$(tags...)]
         $(setup.args...)
     end
 
     temp_name = gensym()
     arg_name = :record
 
-    for expr in benchmarks
+    for (id, expr) in benchmarks
         run_def = quote
             $(run_def.args...)
             Benchmarks.@benchmarkable($temp_name, nothing, $expr, nothing)
             result = Benchmarks.execute($temp_name, $samples, $seconds)
-            id = $(string(expr))
-            record[id] = BenchmarkTrackers.BenchmarkResult(result, tags)
+            record[$id] = BenchmarkTrackers.BenchmarkResult(result, tags)
         end
     end
 
@@ -62,7 +61,7 @@ macro track(tracker, metadata_block)
     # `BenchmarkMetadata` object and adds it to our `BenchmarkTracker`.
     return quote
         local run! = $(esc(run_def))
-        local tags = UTF8String[$(tags...)]
+        local tags = BenchmarkTrackers.Tag[$(tags...)]
         local metadata = BenchmarkTrackers.BenchmarkMetadata(run!,
                                                              $benchmarks,
                                                              tags)
@@ -118,5 +117,7 @@ end
 
 function get_benchmarks(settings)
     macrocalls = filter(x->ismacrocall(x, "benchmark"), settings)
-    return [x.args[2] for x in macrocalls]
+    return map(id_expr_pair, macrocalls)
 end
+
+id_expr_pair(x) = Pair{BenchmarkID,Expr}(x.args[3], x.args[2])

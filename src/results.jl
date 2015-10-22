@@ -52,11 +52,11 @@ immutable BenchmarkResult
     samples::Int
     evals::Int
     rsquared::Nullable{Float64}
-    tags::Vector{UTF8String}
+    tags::Vector{Tag}
 end
 
 # This constructor is going to be fragile until Benchmarks.jl has a stable API
-function BenchmarkResult(result::Benchmarks.Results, tags=UTF8String[])
+function BenchmarkResult(result::Benchmarks.Results, tags=Tag[])
 
     stats = Benchmarks.SummaryStatistics(result)
     nanoseconds = stats.elapsed_time_center
@@ -68,7 +68,7 @@ function BenchmarkResult(result::Benchmarks.Results, tags=UTF8String[])
     rsquared = stats.r²
 
     return BenchmarkResult(nanoseconds, gcpercent, bytes, allocations,
-                           samples, evals, rsquared, Vector{UTF8String}(tags))
+                           samples, evals, rsquared, Vector{Tag}(tags))
 end
 
 function Base.getindex(result::BenchmarkResult, metric::Metric)
@@ -89,113 +89,13 @@ function Base.show(io::IO, result::BenchmarkResult)
     print(io,   "  r²: ", result.rsquared)
 end
 
-################
+####################
 # ComparisonResult #
-################
+####################
 
 # Stores "difference" between two BenchmarkResults w.r.t. a specific metric.
 immutable ComparisonResult
     metric::Metric
+    id::BenchmarkID
     difference::Float64
 end
-
-###########
-# Records #
-###########
-
-# aliases #
-#---------#
-
-# A BenchmarkRecord is a Dict of IDs associated with BenchmarkResults.
-typealias BenchmarkRecord Dict{UTF8String,BenchmarkResult}
-
-# A ComparisonRecord is a Dict of IDs associated with ComparisonResults.
-typealias ComparisonRecord Dict{UTF8String,Vector{ComparisonResult}}
-
-function addresult!(record::ComparisonRecord,
-                    result::ComparisonResult,
-                    id::AbstractString)
-    if haskey(record, id)
-        push!(record[id], result)
-    else
-        record[id] = ComparisonResult[result]
-    end
-    return record
-end
-
-###############################################
-# Performing comparisons on benchmark results #
-###############################################
-
-# Calculate the percent difference between a's value and b's value for the given
-# metric
-function percentdiff(current::BenchmarkResult,
-                     former::BenchmarkResult,
-                     metric::Metric)
-    c, f = current[metric], former[metric]
-    return 200 * abs(c - f) / (c + f)
-end
-
-# Compare two BenchmarkRecords w.r.t. the given metrics and the provided
-# `difference` function, which is called with the signature:
-#
-#   difference(current_result::BenchmarkResult,
-#              former_result::BenchmarkResult,
-#              metric::Metric) -> Float64
-#
-# If a `difference` function is not provided, `percentdiff` is used by default.
-#
-# Each result with both a `current` version and `former` version is compared.
-# Optionally, comparisons can be restricted to results for which the `current`
-# version is tagged with at least one of the provided tags.
-function compare(difference, current::BenchmarkRecord, former::BenchmarkRecord,
-                 metrics=ALL_METRICS; tags=UTF8String[])
-    tags_empty = isempty(tags)
-    record = ComparisonRecord()
-    for (id, current_result) in current
-        valid_tags = tags_empty || anytags(current_result, tags)
-        if valid_tags && haskey(former, id)
-            former_result = former[id]
-            for metric in metrics
-                diff = difference(current_result, former_result, metric)
-                addresult!(record, ComparisonResult(metric, diff), id)
-            end
-        end
-    end
-    return record
-end
-
-function compare(current::BenchmarkRecord, former::BenchmarkRecord,
-                 metrics::Tuple=ALL_METRICS; tags=UTF8String[])
-    return compare(percentdiff, current, former, metrics; tags=tags)
-end
-
-# This failure predicate determines that a ComparisonResult is a failure if
-# its difference is a NaN or is positive within a 5-point tolerance.
-function isfailure(id::AbstractString,
-                   result::ComparisonResult,
-                   tolerance::Number=5.0)
-    diff = result.difference
-    return isnan(diff) || (diff - tolerance) > 0.0
-end
-
-# Takes in a ComparisonRecord and returns a ComparisonRecord containing the
-# input's "failing" results. Failure is determined by calling the given
-# predicate, which is expected to have the following signature:
-#
-#   predicate(id::UTF8String, result::ComparisonResult) -> Bool
-#
-# If a predicate is not passed in, `isfailure` is used by default.
-function failures(predicate, record::ComparisonRecord)
-    fails = ComparisonRecord()
-    for (id, results) in record
-        for result in results
-            if predicate(id, result)
-                addresult!(fails, result, id)
-            end
-        end
-    end
-    return fails
-end
-
-failures(record::ComparisonRecord) = failures(isfailure, record)

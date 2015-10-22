@@ -6,13 +6,10 @@ export BenchmarkTracker
 ####################
 
 type BenchmarkTracker
-    name::UTF8String
     metas::Vector{BenchmarkMetadata}
 end
 
-function BenchmarkTracker(name::AbstractString)
-    return BenchmarkTracker(name, Vector{BenchmarkMetadata}())
-end
+BenchmarkTracker() = BenchmarkTracker(Vector{BenchmarkMetadata}())
 
 track!(tracker::BenchmarkTracker, meta::BenchmarkMetadata) = push!(tracker.metas, meta)
 

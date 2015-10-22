@@ -4,15 +4,18 @@ module BenchmarkTrackers
 # import/export #
 #################
 
-import GitHub, Benchmarks
+import GitHub, Benchmarks, JLD, HttpCommon, URIParser, Requests
 
-export BenchmarkTracker, @track
+export BenchmarkTracker, BenchmarkServer, @track, @declare_ci, 
 
 ###########
 # include #
 ###########
+typealias BenchmarkID UTF8String
+typealias Tag UTF8String
 
 include("results.jl")
+include("records.jl")
 include("metadata.jl")
 include("trackers.jl")
 include("logging.jl")
