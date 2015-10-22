@@ -1,10 +1,18 @@
 # BenchmarkTrackers.jl
 
-[![Build Status](https://travis-ci.org/jrevels/BenchmarkTrackers.jl.svg?branch=master)](https://travis-ci.org/jrevels/BenchmarkTrackers.jl)
+[![Build Status](https://travis-ci.org/JuliaCI/BenchmarkTrackers.jl.svg?branch=master)](https://travis-ci.org/JuliaCI/BenchmarkTrackers.jl)
 
 The intention of BenchmarkTrackers.jl is to **make performance testing of Julia packages easy** by supplying a framework for **writing benchmarks** and **tracking benchmark results as part of CI**.
 
 Actual benchmark execution is performed using [Benchmarks.jl](https://github.com/jrevels/Benchmarks.jl).
+
+## Quick Install
+
+BenchmarkTrackers.jl depends on the unregistered package Benchmarks.jl, to install first clone the package Benchmarks:
+```
+julia> Pkg.clone("https://github.com/johnmyleswhite/Benchmarks.jl")
+julia> Pkg.clone("https://github.com/JuliaCI/BenchmarkTrackers.jl")
+```
 
 ## Writing Benchmarks
 
