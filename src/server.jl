@@ -38,7 +38,7 @@ function BenchmarkServer(node_configs, logger::BenchmarkLogger,
             return HttpCommon.Response(400, "payload must contain comment")
         end
 
-        comment = event["comment"]
+        comment = payload["comment"]
 
         # Step 2: check if comment is from collaborator
         if !(GitHub.iscollaborator(auth, owner, repo, comment["user"]["login"]))
