@@ -25,11 +25,11 @@ function BenchmarkServer(node_configs, logger::BenchmarkLogger,
                          trigger::AbstractString="%RunBenchmarks",
                          status_url::AbstractString="")
 
-    if isempty(nodes)
-        error("BenchmarkServer needs at least one child node to run benchmarks on.")
+    if isempty(node_configs)
+        error("BenchmarkServer needs at least one child node to run benchmarks on")
     end
 
-    listener = GitHub.EventListener(auth, secret, user, repo;
+    listener = GitHub.EventListener(auth, secret, owner, repo;
                                     events=COMMENT_EVENTS) do event, auth
         payload = payload(event)
 
