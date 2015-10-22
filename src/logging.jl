@@ -41,18 +41,20 @@ function haslog(logger::JLDLogger, sha::AbstractString)
 end
 
 function writelog(logger::JLDLogger, sha::AbstractString, record::BenchmarkRecord)
-    filepath = filepath(logger, sha)
+    path = filepath(logger, sha)
 
-    push!(logger.history, filepath)
+    println("logging to: $path")
+
+    push!(logger.history, path)
     if length(logger.history) > log.maxlogs
         rm(shift!(logger.history))
     end
 
-    if isfile(filepath)
-        record = BenchmarkRecord(merge(JLD.load(filepath), record))
+    if isfile(path)
+        record = BenchmarkRecord(merge(JLD.load(path), record))
     end
 
-    JLD.save(filepath, record)
+    JLD.save(path, record)
 end
 
 function readlog(logger::JLDLogger, sha::AbstractString)
