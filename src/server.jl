@@ -31,7 +31,7 @@ function BenchmarkServer(node_configs, logger::BenchmarkLogger,
 
     listener = GitHub.EventListener(auth, secret, owner, repo;
                                     events=COMMENT_EVENTS) do event, auth
-        payload = payload(event)
+        payload = GitHub.payload(event)
 
         # Step 1: extract comment from payload
         if !(haskey(payload, "comment"))
@@ -62,9 +62,9 @@ function BenchmarkServer(node_configs, logger::BenchmarkLogger,
 
         if length(args) == 2
             former_sha = strip(args[2])
-        elseif name(event) == GitHub.CommitCommentEvent
+        elseif GitHub.name(event) == GitHub.CommitCommentEvent
             former_sha = parent_sha(auth, owner, repo, current_sha)
-        elseif name(event) == GitHub.PullRequestReviewCommentEvent
+        elseif GitHub.name(event) == GitHub.PullRequestReviewCommentEvent
             former_sha = base_sha(payload)
         end
 
